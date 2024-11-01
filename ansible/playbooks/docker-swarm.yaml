@@ -1,0 +1,58 @@
+---
+- name: install docker swarm
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: check if swarm is already initialized
+      command: docker info
+      register: docker_info
+      failed_when: false
+      changed_when: false
+
+    - name: docker swarm init
+      command: docker swarm init --advertise-addr "{{ ansible_host }}"
+      register: swarm
+      failed_when: "'This node is already part of a swarm' not in swarm.stderr"
+      when:
+        - inventory_hostname == groups['manager'][0]
+        - "'Swarm: inactive' in docker_info.stdout"
+
+    - name: join token for workers
+      command: docker swarm join-token --quiet worker
+      register: worker_token
+      when: inventory_hostname == groups['manager'][0]
+
+    - name: join token for managers
+      command: docker swarm join-token --quiet manager
+      register: manager_token
+      when: inventory_hostname == groups['manager'][0]
+
+    - name: set worker token fact
+      set_fact:
+        swarm_worker_token: "{{ worker_token.stdout }}"
+      when: inventory_hostname == groups['manager'][0]
+
+    - name: set manager token fact
+      set_fact:
+        swarm_manager_token: "{{ manager_token.stdout }}"
+      when: inventory_hostname == groups['manager'][0]
+
+    - name: check if node is already part of the swarm
+      command: docker info
+      register: docker_info
+      failed_when: false
+      changed_when: false
+
+    - name: join additional managers
+      command: docker swarm join --token {{ hostvars[groups['manager'][0]].swarm_manager_token }} {{ hostvars[groups['manager'][0]].ansible_host }}:2377
+      when:
+        - inventory_hostname in groups['manager']
+        - inventory_hostname != groups['manager'][0]
+        - "'Swarm: inactive' in docker_info.stdout"
+
+    - name: join nodes
+      command: docker swarm join --token {{ hostvars[groups['manager'][0]].swarm_worker_token }} {{ hostvars[groups['manager'][0]].ansible_host }}:2377
+      when:
+        - inventory_hostname in groups['nodes']
+        - "'Swarm: inactive' in docker_info.stdout"

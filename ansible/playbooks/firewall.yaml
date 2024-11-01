@@ -1,0 +1,83 @@
+- name: configure firewall and ssh
+  hosts: all
+  become: yes
+  tasks:
+    - name: install ufw
+      apk:
+        name: ufw
+        state: present
+        update_cache: yes
+      register: ufw_install
+
+    - name: reboot the machine with all defaults
+      ansible.builtin.reboot:
+      when: ufw_install.changed
+
+    - name: set default policy to deny incoming traffic
+      ufw:
+        default: deny
+        direction: incoming
+
+    - name: set default policy to allow outgoing traffic
+      ufw:
+        default: allow
+        direction: outgoing
+
+    - name: allow SSH traffic
+      ufw:
+        rule: allow
+        port: 22
+        proto: tcp
+
+    - name: allow traffic from specified ips
+      ufw:
+        rule: allow
+        src: "{{ item }}"
+      with_items: "{{ allowed_ips }}"
+
+    - name: enable ufw
+      ufw:
+        state: enabled
+
+    - name: reload ufw
+      ufw:
+        state: reloaded
+
+    - name: ensure passwordauthentication is set to no
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^PasswordAuthentication"
+        line: "PasswordAuthentication no"
+        state: present
+
+    - name: restart ssh service
+      service:
+        name: sshd
+        state: restarted
+
+    - name: install fail2ban
+      apk:
+        name: fail2ban
+        state: present
+        update_cache: yes
+      tags:
+        - fail2ban
+
+    # sshban is enabled by default. need to add other filters and jails based on services
+    - name: start fail2ban
+      service:
+        name: fail2ban
+        enabled: yes
+        state: started
+      tags:
+        - fail2ban
+
+    - name: allow traffic from other hosts
+      ufw:
+        rule: allow
+        src: "{{ hostvars[item].ansible_host }}"
+      loop: "{{ groups['main'] | difference([inventory_hostname]) }}"
+      loop_control:
+        label: "{{ item }}"
+      tags:
+        - allow

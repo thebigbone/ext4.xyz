@@ -1,0 +1,35 @@
+---
+- name: install docker
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: install required packages
+      apk:
+        name: ca-certificates,iptables
+        state: present
+    
+    - name: add docker repository
+      copy:
+        dest: /etc/apk/repositories
+        content: |
+          http://dl-cdn.alpinelinux.org/alpine/v3.19/main
+          http://dl-cdn.alpinelinux.org/alpine/v3.19/community
+    
+    - name: install docker and docker compose
+      apk:
+        name: "{{ item }}"
+        state: latest
+        update_cache: yes
+      loop:
+        - docker
+        - docker-cli-compose
+    
+    - name: add docker group
+      command: addgroup ${USER} docker
+
+    - name: enable and start docker service
+      service:
+        name: docker
+        enabled: yes
+        state: started

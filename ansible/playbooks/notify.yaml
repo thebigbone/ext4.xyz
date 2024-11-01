@@ -1,0 +1,12 @@
+---
+- name: send notification
+  uri:
+    url: "{{ notification_endpoint }}"
+    method: POST
+    headers: "{{ notification_headers }}"
+    body_format: json
+    body:
+      message: "{{ notification_message }}"
+      status: "{{ notification_status }}"
+  delegate_to: localhost
+  become: no

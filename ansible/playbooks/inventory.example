@@ -1,0 +1,15 @@
+[main]
+m1
+m2
+n1
+n2
+
+[manager]
+m1
+m2
+...
+
+[nodes]
+n1
+n2
+...

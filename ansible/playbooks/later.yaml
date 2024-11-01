@@ -1,0 +1,25 @@
+---
+- hosts: all
+  become: yes
+
+  tasks:
+    - name: start glusterfs and ufw
+      service:
+        name: "{{ item }}" 
+        state: started
+        enabled: yes
+      with_items:
+        - "glusterd"
+        - "ufw"
+
+    - name: create glusterfs brick
+      file:
+        path: /data/brick1/gv0
+        state: directory
+
+    - name: allow ssh ufw
+      ufw:
+        rule: allow
+        port: ssh
+        proto: tcp
+        src: any

@@ -1,0 +1,16 @@
+---
+- name: update and upgrade alpine
+  hosts: all
+  become: yes
+
+  tasks:
+  - name: update package list
+    apk:
+      update_cache: yes
+
+  - name: upgrade all packages
+    apk:
+      upgrade: yes
+
+  - name: clean up package cache
+    command: apk cache clean
